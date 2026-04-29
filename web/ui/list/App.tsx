@@ -7,6 +7,8 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useTodoList } from "@api/ai_chat_todo/v1/todo_rbt_react";
 import css from "./App.module.css";
 
@@ -19,6 +21,21 @@ export const ShowListApp: FC = () => {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
+  const [expandedResearchIds, setExpandedResearchIds] = useState<
+    Set<string>
+  >(new Set());
+
+  const toggleResearchExpanded = (itemId: string) => {
+    setExpandedResearchIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
+  };
 
   const editingInputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
@@ -54,6 +71,10 @@ export const ShowListApp: FC = () => {
 
   const handleRemove = async (itemId: string) => {
     await todoList.removeItem({ itemId });
+  };
+
+  const handleStartResearch = async (itemId: string) => {
+    await todoList.startResearch({ itemId });
   };
 
   const startEditing = (itemId: string, currentText: string) => {
@@ -152,55 +173,115 @@ export const ShowListApp: FC = () => {
             .filter(Boolean)
             .join(" ");
 
+          const status =
+            (item.researchStatus as
+              | "idle"
+              | "running"
+              | "completed"
+              | ""
+              | undefined) || "idle";
+          const isIdle = status === "idle";
+          const isRunning = status === "running";
+          const isDone = status === "completed";
+          const isExpanded = isDone && expandedResearchIds.has(item.id);
+          const researchLabel = isDone
+            ? isExpanded
+              ? "Completed ▴"
+              : "Completed ▾"
+            : isRunning
+              ? "Researching"
+              : "Research";
+          const researchBtnClass = [
+            css.researchButton,
+            isRunning ? css.researchRunning : "",
+            isDone ? css.researchDone : "",
+            isExpanded ? css.researchExpanded : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
+          const handleResearchClick = () => {
+            if (isIdle) {
+              void handleStartResearch(item.id);
+            } else if (isDone) {
+              toggleResearchExpanded(item.id);
+            }
+          };
+
           return (
-            <div
-              key={item.id}
-              className={rowClass}
-              draggable={editingId !== item.id}
-              onDragStart={handleDragStart(index)}
-              onDragOver={handleDragOver(index)}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop(index)}
-              onDragEnd={handleDragEnd}
-            >
-              <span
-                className={css.handle}
-                title="Drag to reorder"
-                aria-hidden
+            <div key={item.id} className={css.itemWrapper}>
+              <div
+                className={rowClass}
+                draggable={editingId !== item.id}
+                onDragStart={handleDragStart(index)}
+                onDragOver={handleDragOver(index)}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop(index)}
+                onDragEnd={handleDragEnd}
               >
-                ⋮⋮
-              </span>
-              <input
-                type="checkbox"
-                className={css.checkbox}
-                checked={item.completed}
-                onChange={() => void handleToggle(item.id)}
-              />
-              {editingId === item.id ? (
-                <input
-                  ref={editingInputRef}
-                  className={css.editInput}
-                  value={editingText}
-                  onChange={(e) => setEditingText(e.target.value)}
-                  onBlur={() => void commitEdit()}
-                  onKeyDown={handleEditKey}
-                />
-              ) : (
                 <span
-                  className={css.text}
-                  onDoubleClick={() => startEditing(item.id, item.text)}
-                  title="Double-click to edit"
+                  className={css.handle}
+                  title="Drag to reorder"
+                  aria-hidden
                 >
-                  {item.text}
+                  ⋮⋮
                 </span>
+                <input
+                  type="checkbox"
+                  className={css.checkbox}
+                  checked={item.completed}
+                  onChange={() => void handleToggle(item.id)}
+                />
+                {editingId === item.id ? (
+                  <input
+                    ref={editingInputRef}
+                    className={css.editInput}
+                    value={editingText}
+                    onChange={(e) => setEditingText(e.target.value)}
+                    onBlur={() => void commitEdit()}
+                    onKeyDown={handleEditKey}
+                  />
+                ) : (
+                  <span
+                    className={css.text}
+                    onDoubleClick={() => startEditing(item.id, item.text)}
+                    title="Double-click to edit"
+                  >
+                    {item.text}
+                  </span>
+                )}
+                <button
+                  className={researchBtnClass}
+                  onClick={handleResearchClick}
+                  disabled={isRunning}
+                  title={
+                    isDone
+                      ? isExpanded
+                        ? "Hide research"
+                        : "Show research"
+                      : isRunning
+                        ? "Research running…"
+                        : "Run background research on this item"
+                  }
+                >
+                  {researchLabel}
+                </button>
+                <button
+                  className={css.deleteButton}
+                  onClick={() => void handleRemove(item.id)}
+                  aria-label="Delete item"
+                >
+                  ✕
+                </button>
+              </div>
+              {isExpanded && item.researchMarkdown && (
+                <div className={css.researchPanel}>
+                  <article className={css.markdown}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {item.researchMarkdown}
+                    </ReactMarkdown>
+                  </article>
+                </div>
               )}
-              <button
-                className={css.deleteButton}
-                onClick={() => void handleRemove(item.id)}
-                aria-label="Delete item"
-              >
-                ✕
-              </button>
             </div>
           );
         })}
