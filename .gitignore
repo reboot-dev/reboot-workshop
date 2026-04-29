@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Node
+node_modules/
+*.tsbuildinfo
+
+# Reboot cache
+.rbt/
+
+# Generated bindings (recreated by `rbt generate`)
+backend/api/
+web/api/
+
+# Vite build output
+web/dist/
+
+# Local env / editor / OS
+.env
+.env.local
+.DS_Store
+.idea/
+.vscode/

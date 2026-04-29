@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "ai_chat_todo": {
+      "url": "http://localhost:9991/mcp",
+      "useOAuth": true
+    }
+  }
+}
